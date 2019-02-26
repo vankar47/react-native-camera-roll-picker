@@ -186,7 +186,6 @@ class CameraRollPicker extends Component {
       <FlatList
         style={{ flex: 1 }}
         ListFooterComponent={this.renderFooterSpinner}
-        initialNumToRender={initialNumToRender}
         onEndReached={this.onEndReached}
         renderItem={({ item }) => this.renderImage(item)}
         keyExtractor={item => item.node.image.uri}
@@ -194,6 +193,11 @@ class CameraRollPicker extends Component {
         numColumns={imagesPerRow}
         extraData={this.state.selected}
         onEndReachedThreshold={0.7}
+        windowSize={9}
+        maxToRenderPerBatch={9}
+        initialNumToRender={initialNumToRender}
+        removeClippedSubviews={Platform.OS === 'android'}
+        updateCellsBatchingPeriod={10}
       />
     ) : (
       <Text style={[{ textAlign: 'center' }, emptyTextStyle]}>{emptyText}</Text>
