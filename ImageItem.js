@@ -29,6 +29,11 @@ class ImageItem extends Component {
     this.imageSize = (width - (imagesPerRow + 1) * imageMargin) / imagesPerRow;
   }
 
+  shouldComponentUpdate(nextProps) {
+    const { uri, selected } = this.props;
+    return uri !== nextProps.uri || selected !== nextProps.selected
+  }
+
   handleClick(item) {
     this.props.onClick(item);
   }
@@ -36,6 +41,7 @@ class ImageItem extends Component {
   render() {
     const {
       item, selected, selectedMarker, imageMargin,
+      uri,
     } = this.props;
 
     const marker = selectedMarker || (<Image
@@ -51,7 +57,7 @@ class ImageItem extends Component {
         onPress={() => this.handleClick(image)}
       >
         <Image
-          source={{ uri: image.uri }}
+          source={{ uri }}
           style={{ height: this.imageSize, width: this.imageSize }}
         />
         {(selected) ? marker : null}
@@ -66,6 +72,7 @@ ImageItem.defaultProps = {
 };
 
 ImageItem.propTypes = {
+  uri: PropTypes.string.isRequired,
   item: PropTypes.object,
   selected: PropTypes.bool,
   selectedMarker: PropTypes.element,
