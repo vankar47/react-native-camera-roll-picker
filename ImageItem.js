@@ -44,12 +44,13 @@ class ImageItem extends Component {
       uri,
     } = this.props;
 
-    const marker = selectedMarker || (<Image
-      style={[styles.marker, { width: 25, height: 25 }]}
-      source={checkIcon}
-    />);
+    const marker = selectedMarker || (
+      <Image
+        style={[styles.marker, { width: 25, height: 25 }]}
+        source={checkIcon}
+      />);
 
-    const { image } = item.node;
+    const image = item.node;
 
     return (
       <TouchableOpacity

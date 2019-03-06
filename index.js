@@ -84,12 +84,13 @@ class CameraRollPicker extends Component {
   }
 
   doFetch() {
-    const { first, groupTypes, assetType } = this.props;
+    const { first, groupTypes, assetType, mimeTypes } = this.props;
 
     const fetchParams = {
       first,
       groupTypes,
       assetType,
+      mimeTypes,
     };
 
     if (Platform.OS === 'android') {
@@ -102,23 +103,34 @@ class CameraRollPicker extends Component {
     }
 
     CameraRoll.getPhotos(fetchParams)
-      .then(data => this.appendImages(data), e => console.log(e));
+      .then(data => {
+        return this.appendImages(data);
+      }, e => console.log(e));
   }
 
   selectImage(image) {
     const { selected, images } = this.state;
     const {
       callback,
+      maximum,
     } = this.props;
 
-    const isAlreadySelected = selected.find(item => item.uri === image.uri);
+    const isAlreadySelected = selected.find(item => item.uri === image.image.uri);
 
     let newSelected = [];
     if (isAlreadySelected) {
       // remove from array 
-      newSelected = selected.filter(item => item.uri !== image.uri);
+      newSelected = selected.filter(item => item.uri !== image.image.uri);
     } else {
-      newSelected = [...selected, image];
+      if (selected.length >= maximum) {
+        return;
+      }
+      newSelected = [...selected, {
+        height: image.image.height,
+        uri: image.image.uri,
+        width: image.image.width,
+        type: image.type,
+      }];
     }
 
     this.setState({
