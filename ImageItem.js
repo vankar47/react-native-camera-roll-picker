@@ -42,15 +42,22 @@ class ImageItem extends Component {
     const {
       item, selected, selectedMarker, imageMargin,
       uri,
+      VideoMarker,
     } = this.props;
+
+    const image = item.node;
 
     const marker = selectedMarker || (
       <Image
         style={[styles.marker, { width: 25, height: 25 }]}
         source={checkIcon}
-      />);
-
-    const image = item.node;
+      />
+    );
+    const videoInfo = (image.image.playableDuration !== undefined && image.image.playableDuration > 0)
+      ? (
+        <VideoMarker duration={image.image.playableDuration} />
+      )
+      : null;
 
     return (
       <TouchableOpacity
@@ -62,6 +69,7 @@ class ImageItem extends Component {
           style={{ height: this.imageSize, width: this.imageSize }}
         />
         {(selected) ? marker : null}
+        {videoInfo}
       </TouchableOpacity>
     );
   }
@@ -70,6 +78,8 @@ class ImageItem extends Component {
 ImageItem.defaultProps = {
   item: {},
   selected: false,
+  selectedMarker: null,
+  VideoMarker: null,
 };
 
 ImageItem.propTypes = {
@@ -77,6 +87,7 @@ ImageItem.propTypes = {
   item: PropTypes.object,
   selected: PropTypes.bool,
   selectedMarker: PropTypes.element,
+  VideoMarker: PropTypes.element,
   imageMargin: PropTypes.number,
   imagesPerRow: PropTypes.number,
   onClick: PropTypes.func,

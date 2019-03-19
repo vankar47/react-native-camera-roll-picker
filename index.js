@@ -130,6 +130,7 @@ class CameraRollPicker extends Component {
         uri: image.image.uri,
         width: image.image.width,
         type: image.type,
+        playableDuration: image.image.playableDuration,
       }];
     }
 
@@ -148,6 +149,7 @@ class CameraRollPicker extends Component {
       selectedMarker,
       imagesPerRow,
       containerWidth,
+      VideoMarker,
     } = this.props;
 
     const { uri } = item.node.image;
@@ -161,6 +163,7 @@ class CameraRollPicker extends Component {
         selected={isSelected}
         imageMargin={imageMargin}
         selectedMarker={selectedMarker}
+        VideoMarker={VideoMarker}
         imagesPerRow={imagesPerRow}
         containerWidth={containerWidth}
         onClick={this.selectImage}
@@ -249,6 +252,7 @@ CameraRollPicker.propTypes = {
   callback: PropTypes.func,
   selected: PropTypes.array,
   selectedMarker: PropTypes.element,
+  VideoMarker: PropTypes.element,
   backgroundColor: PropTypes.string,
   emptyText: PropTypes.string,
   emptyTextStyle: Text.propTypes.style,
