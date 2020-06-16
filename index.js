@@ -6,6 +6,7 @@ import {
   Text,
   FlatList,
   ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import CameraRoll from "@react-native-community/cameraroll";
 import PropTypes from 'prop-types';
@@ -36,6 +37,7 @@ class CameraRollPicker extends Component {
       loadingMore: false,
       noMore: false,
       data: [],
+      loading: false,
     };
 
     this.renderFooterSpinner = this.renderFooterSpinner.bind(this);
@@ -54,7 +56,7 @@ class CameraRollPicker extends Component {
     }
   }
 
-  appendImages(data) {
+  appendImages(data, operation) {
     const { images } = this.state;
     const assets = data.edges;
     const newState = {
@@ -70,7 +72,7 @@ class CameraRollPicker extends Component {
 
     if (assets.length > 0) {
       newState.lastCursor = data.page_info.end_cursor;
-      newState.images = images.concat(assets);
+      newState.images = operation == 'refresh' ? [].concat(assets) :images.concat(assets);
       newState.data = newState.images;
     }
 
@@ -84,7 +86,7 @@ class CameraRollPicker extends Component {
   }
 
   doFetch() {
-    const { first, groupTypes, assetType, mimeTypes } = this.props;
+    const { first = 10, groupTypes, assetType, mimeTypes } = this.props;
 
     const fetchParams = {
       first,
@@ -104,7 +106,25 @@ class CameraRollPicker extends Component {
 
     CameraRoll.getPhotos(fetchParams)
       .then(data => {
-        return this.appendImages(data);
+        return this.appendImages(data, '');
+      }, e => console.log(e));
+  }
+
+  _refreshControl(fetchParams) {
+    this.setState({
+      loading: true
+    })
+    if (Platform.OS === 'android') {
+      // not supported in android
+      delete fetchParams.groupTypes;
+    }
+    
+    CameraRoll.getPhotos(fetchParams)
+      .then(data => {
+        this.setState({
+          loading: false
+        })
+        return this.appendImages(data, 'refresh');
       }, e => console.log(e));
   }
 
@@ -213,6 +233,18 @@ class CameraRollPicker extends Component {
         initialNumToRender={initialNumToRender}
         removeClippedSubviews={Platform.OS === 'android'}
         updateCellsBatchingPeriod={10}
+        refreshControl={<RefreshControl
+          refreshing={this.state.loading}
+          onRefresh={()=> {
+            const {first = 10, groupTypes, assetType, mimeTypes} = this.props;
+            this._refreshControl({
+              assetType, 
+              first, 
+              mimeTypes,
+              groupTypes
+            })
+          }}
+        />}
       />
     ) : (
       <Text style={[{ textAlign: 'center' }, emptyTextStyle]}>{emptyText}</Text>
