@@ -154,7 +154,8 @@ class CameraRollPicker extends Component {
         type: image.type,
         playableDuration: image.image.playableDuration,
         name: image.image.filename,
-        fileSize: image.image.fileSize
+        fileSize: image.image.fileSize,
+        exif: 'location' in image ? image.location: null
       }];
     }
 
