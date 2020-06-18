@@ -104,6 +104,8 @@ class CameraRollPicker extends Component {
       fetchParams.after = this.state.lastCursor;
     }
 
+    fetchParams.include = ['filename', 'fileSize', 'location']
+
     CameraRoll.getPhotos(fetchParams)
       .then(data => {
         return this.appendImages(data, '');
@@ -118,7 +120,7 @@ class CameraRollPicker extends Component {
       // not supported in android
       delete fetchParams.groupTypes;
     }
-    
+    fetchParams.include = ['filename', 'fileSize', 'location']
     CameraRoll.getPhotos(fetchParams)
       .then(data => {
         this.setState({
@@ -151,6 +153,9 @@ class CameraRollPicker extends Component {
         width: image.image.width,
         type: image.type,
         playableDuration: image.image.playableDuration,
+        name: image.image.filename,
+        fileSize: image.image.fileSize,
+        exif: 'location' in image ? image.location: null
       }];
     }
 
