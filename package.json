@@ -25,7 +25,7 @@
   },
   "homepage": "https://github.com/jeanpan/react-native-camera-roll-picker#readme",
   "dependencies": {
-    "@react-native-community/cameraroll": "git+https://github.com/madadoux/react-native-cameraroll#master",
+    "@react-native-community/cameraroll": "git+https://github.com/madadoux/react-native-cameraroll.git",
     "prop-types": "^15.6.0"
   }
 }
