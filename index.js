@@ -69,6 +69,14 @@ class CameraRollPicker extends Component {
     if (!data.page_info.has_next_page) {
       newState.noMore = true;
     }
+    
+    if(operation === 'refresh') {
+      if (!data.page_info.has_next_page) {
+        newState.noMore = true;
+      } else {
+        newState.noMore = false;
+      }
+    }
 
     if (assets.length > 0) {
       newState.lastCursor = data.page_info.end_cursor;
