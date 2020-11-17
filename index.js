@@ -44,6 +44,7 @@ class CameraRollPicker extends Component {
     this.onEndReached = this.onEndReached.bind(this);
     this.selectImage = this.selectImage.bind(this);
     this.renderImage = this.renderImage.bind(this);
+    this._handleScroll = this._handleScroll.bind(this);
   }
 
   componentWillMount() {
@@ -94,15 +95,15 @@ class CameraRollPicker extends Component {
   }
 
   doFetch() {
-    const { first = 10, groupTypes, assetType, mimeTypes } = this.props;
+    const { first = 10, groupTypes, assetType, mimeTypes, sort_by = '' } = this.props;
 
     const fetchParams = {
       first,
       groupTypes,
       assetType,
       mimeTypes,
+      ...{sort_by}
     };
-
     if (Platform.OS === 'android') {
       // not supported in android
       delete fetchParams.groupTypes;
@@ -211,6 +212,12 @@ class CameraRollPicker extends Component {
     return null;
   }
 
+  _handleScroll (event) {
+    if(event.nativeEvent.contentOffset.y < 5) {
+      this.props.topBarNotifier && this.props.topBarNotifier({yOffset: event.nativeEvent.contentOffset.y })
+    }   
+  }
+
   render() {
     const {
       initialNumToRender,
@@ -233,6 +240,7 @@ class CameraRollPicker extends Component {
     const flatListOrEmptyText = this.state.data.length > 0 ? (
       <FlatList
         style={{ flex: 1 }}
+        onScroll={this._handleScroll}
         ListFooterComponent={this.renderFooterSpinner}
         onEndReached={this.onEndReached}
         renderItem={({ item }) => this.renderImage(item)}
@@ -249,12 +257,13 @@ class CameraRollPicker extends Component {
         refreshControl={<RefreshControl
           refreshing={this.state.loading}
           onRefresh={()=> {
-            const {first = 10, groupTypes, assetType, mimeTypes} = this.props;
+            const {first = 10, groupTypes, assetType, mimeTypes, sort_by} = this.props;
             this._refreshControl({
               assetType, 
               first, 
               mimeTypes,
-              groupTypes
+              groupTypes,
+              sort_by
             })
           }}
         />}
