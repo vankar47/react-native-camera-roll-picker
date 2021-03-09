@@ -143,7 +143,7 @@ class CameraRollPicker extends Component {
     const { selected, images } = this.state;
     const {
       callback,
-      maximum,
+      maximumErrorHandler,
     } = this.props;
 
     const isAlreadySelected = selected.find(item => item.uri === image.image.uri);
@@ -153,7 +153,7 @@ class CameraRollPicker extends Component {
       // remove from array 
       newSelected = selected.filter(item => item.uri !== image.image.uri);
     } else {
-      if (selected.length >= maximum) {
+      if (!maximumErrorHandler()) {
         return;
       }
       newSelected = [...selected, {
@@ -294,6 +294,7 @@ CameraRollPicker.propTypes = {
     'SavedPhotos',
   ]),
   maximum: PropTypes.number,
+  maximumErrorHandler: PropTypes.func,
   assetType: PropTypes.oneOf([
     'Photos',
     'Videos',
@@ -327,6 +328,7 @@ CameraRollPicker.defaultProps = {
     console.log(currentImage);
     console.log(selectedImages);
   },
+  maximumErrorHandler() {},
   emptyText: 'No photos.',
 };
 
