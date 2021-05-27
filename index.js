@@ -149,7 +149,8 @@ class CameraRollPicker extends Component {
     const { selected, images } = this.state;
     const {
       callback,
-      maximumErrorHandler,
+//       maximumErrorHandler,
+      maximum,
     } = this.props;
 
     const isAlreadySelected = selected.find(item => item.uri === image.image.uri);
@@ -159,7 +160,8 @@ class CameraRollPicker extends Component {
       // remove from array 
       newSelected = selected.filter(item => item.uri !== image.image.uri);
     } else {
-      if (!maximumErrorHandler()) {
+//       if (!maximumErrorHandler()) {
+      if (selected.length >= maximum) {
         return;
       }
       newSelected = [...selected, {
