@@ -138,6 +138,12 @@ class CameraRollPicker extends Component {
         return this.appendImages(data, 'refresh');
       }, e => console.log(e));
   }
+  
+  reset () {
+    this.setState({
+      selected: [],
+    });
+  }
 
   selectImage(image) {
     const { selected, images } = this.state;
