@@ -162,7 +162,8 @@ class CameraRollPicker extends Component {
     } else {
 //       if (!maximumErrorHandler()) {
       if (selected.length >= maximum) {
-        maximumErrorHandler();
+        if (maximumErrorHandler)
+          maximumErrorHandler();
         return;
       }
       newSelected = [...selected, {
