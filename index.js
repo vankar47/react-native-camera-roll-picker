@@ -149,7 +149,7 @@ class CameraRollPicker extends Component {
     const { selected, images } = this.state;
     const {
       callback,
-//       maximumErrorHandler,
+      maximumErrorHandler,
       maximum,
     } = this.props;
 
@@ -162,6 +162,7 @@ class CameraRollPicker extends Component {
     } else {
 //       if (!maximumErrorHandler()) {
       if (selected.length >= maximum) {
+        maximumErrorHandler();
         return;
       }
       newSelected = [...selected, {
