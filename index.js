@@ -320,7 +320,7 @@ CameraRollPicker.propTypes = {
   VideoMarker: PropTypes.element,
   backgroundColor: PropTypes.string,
   emptyText: PropTypes.string,
-  emptyTextStyle: Text.propTypes.style,
+  // emptyTextStyle: Text.propTypes.style,
   loader: PropTypes.node,
 };
 
