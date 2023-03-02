@@ -153,30 +153,24 @@ class CameraRollPicker extends Component {
       maximum,
     } = this.props;
 
-    const isAlreadySelected = selected.find(item => item.uri === image.image.uri);
+    const isDeSelected = this.deSelectImage(image.image);
+    if (isDeSelected) return false;
 
-    let newSelected = [];
-    if (isAlreadySelected) {
-      // remove from array 
-      newSelected = selected.filter(item => item.uri !== image.image.uri);
-    } else {
-//       if (!maximumErrorHandler()) {
-      if (selected.length >= maximum) {
-        if (maximumErrorHandler)
-          maximumErrorHandler();
-        return;
-      }
-      newSelected = [...selected, {
-        height: image.image.height,
-        uri: image.image.uri,
-        width: image.image.width,
-        type: image.type,
-        playableDuration: image.image.playableDuration,
-        name: image.image.filename,
-        fileSize: image.image.fileSize,
-        exif: 'location' in image ? image.location: null
-      }];
+    if (selected.length >= maximum) {
+      if (maximumErrorHandler)
+        maximumErrorHandler();
+      return;
     }
+    const newSelected = [...selected, {
+      height: image.image.height,
+      uri: image.image.uri,
+      width: image.image.width,
+      type: image.type,
+      playableDuration: image.image.playableDuration,
+      name: image.image.filename,
+      fileSize: image.image.fileSize,
+      exif: 'location' in image ? image.location: null
+    }];
 
     this.setState({
       selected: newSelected,
@@ -184,6 +178,28 @@ class CameraRollPicker extends Component {
     });
 
     callback(newSelected, image);
+  }
+
+  deSelectImage(media) {
+    const {onMediaDeselected = () => {}} = this.props;
+    const {selected, images} = this.state;
+
+
+    const isAlreadySelected = selected.find(item => item.uri === media.uri);
+    if (isAlreadySelected) {
+      // remove from array
+      const newSelected = selected.filter(item => item.uri !== media.uri);
+
+      this.setState({
+        selected: newSelected,
+        data: images,
+      });
+
+      onMediaDeselected(media)
+      return true;
+    }
+
+    return false; // wasn't selected
   }
 
   renderImage(item) {
