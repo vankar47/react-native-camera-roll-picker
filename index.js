@@ -181,7 +181,7 @@ class CameraRollPicker extends Component {
   }
 
   deSelectImage(media) {
-    const {onMediaDeselected = () => {}} = this.props;
+    const {onMediaDeselected, callback} = this.props;
     const {selected, images} = this.state;
 
 
@@ -195,7 +195,12 @@ class CameraRollPicker extends Component {
         data: images,
       });
 
-      onMediaDeselected(media)
+      if (onMediaDeselected) {
+        onMediaDeselected(media)
+      } else {
+        // support old system
+        callback(newSelected, media);
+      }
       return true;
     }
 
