@@ -6,9 +6,9 @@ import {
   Text,
   FlatList,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
 } from 'react-native';
-import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import { CameraRoll, cameraRollEventEmitter } from "@react-native-camera-roll/camera-roll";
 import PropTypes from 'prop-types';
 
 import ImageItem from './ImageItem';
@@ -49,6 +49,16 @@ class CameraRollPicker extends Component {
 
   componentWillMount() {
     this.fetch();
+    if (this.subscription) this.subscription.remove();
+    if (parseInt(Platform.Version, 10) > 14) {
+      this.subscription = cameraRollEventEmitter.addListener('onLibrarySelectionChange', (_event) => {
+        this.fetch();
+      });
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.subscription && parseInt(Platform.Version, 10) > 14) this.subscription.remove();
   }
 
   onEndReached() {
