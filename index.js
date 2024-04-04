@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { CameraRoll, cameraRollEventEmitter } from "@react-native-camera-roll/camera-roll";
+import CameraRoll from "@react-native-community/cameraroll";
 import PropTypes from 'prop-types';
 
 import ImageItem from './ImageItem';
