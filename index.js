@@ -1,10 +1,9 @@
-import React, { Component } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Platform,
   StyleSheet,
   View,
   Text,
-  FlatList,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
@@ -13,8 +12,8 @@ import {
   cameraRollEventEmitter,
 } from "@react-native-camera-roll/camera-roll";
 import PropTypes from "prop-types";
-
 import ImageItem from "./ImageItem";
+import { FlashList } from "@shopify/flash-list";
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -25,109 +24,77 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  spinner: {
+    marginVertical: 10,
+  },
 });
 
-class CameraRollPicker extends Component {
-  constructor(props) {
-    super(props);
+function CameraRollPicker(props) {
+  const {
+    initialNumToRender,
+    imageMargin,
+    backgroundColor,
+    emptyText,
+    emptyTextStyle,
+    loader,
+    imagesPerRow,
+    ImageIcon,
+    groupTypes,
+    maximum,
+    maximumErrorHandler,
+    assetType,
+    selectSingleItem,
+    containerWidth,
+    callback,
+    selected: selectedProp,
+    selectedMarker,
+    VideoMarker,
+    emptyText: emptyTextProp,
+  } = props;
 
-    this.state = {
-      images: [],
-      selected: props.selected,
-      lastCursor: null,
-      initialLoading: true,
-      loadingMore: false,
-      noMore: false,
-      data: [],
-      loading: false,
-    };
+  const [images, setImages] = useState([]);
+  const [selected, setSelected] = useState(selectedProp || []);
+  const [lastCursor, setLastCursor] = useState(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [noMore, setNoMore] = useState(false);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    this.renderFooterSpinner = this.renderFooterSpinner.bind(this);
-    this.onEndReached = this.onEndReached.bind(this);
-    this.selectImage = this.selectImage.bind(this);
-    this.renderImage = this.renderImage.bind(this);
-    this._handleScroll = this._handleScroll.bind(this);
-  }
+  const subscriptionRef = useRef(null);
 
-  componentWillMount() {
-    this.fetch();
+  // Helper to append images
+  const appendImages = useCallback(
+    (data, operation) => {
+      const assets = data.edges;
+      let newImages = images;
+      let newNoMore = noMore;
+      let newLastCursor = lastCursor;
 
-    if (this.subscription) this.subscription.remove();
-    if (parseInt(Platform.Version, 10) > 14) {
-      this.subscription = cameraRollEventEmitter.addListener(
-        "onLibrarySelectionChange",
-        (_event) => {
-          this.fetch();
-        }
-      );
-    }
-  }
-
-  componentWillUnmount() {
-    if (this.subscription && parseInt(Platform.Version, 10) > 14)
-      this.subscription.remove();
-  }
-
-  componentDidUpdate(prevProps) {
-    if (prevProps.selectedAlbum !== this.props.selectedAlbum) {
-      this.setState(
-        {
-          images: [],
-          data: [],
-          lastCursor: null,
-          noMore: false,
-          initialLoading: true,
-        },
-        () => this.doFetch()
-      );
-    }
-  }
-
-  onEndReached() {
-    if (!this.state.noMore) {
-      this.fetch();
-    }
-  }
-
-  appendImages(data, operation) {
-    const { images } = this.state;
-    const assets = data.edges;
-    const newState = {
-      loadingMore: false,
-      initialLoading: false,
-    };
-
-    if (!data.page_info.has_next_page || assets.length <= 1) {
-      newState.noMore = true;
-    }
-
-    if (operation === "refresh") {
-      if (!data.page_info.has_next_page) {
-        newState.noMore = true;
-      } else {
-        newState.noMore = false;
+      if (!data.page_info.has_next_page || assets.length <= 1) {
+        newNoMore = true;
       }
-    }
 
-    if (assets.length > 0) {
-      newState.lastCursor = data.page_info.end_cursor;
-      newState.images =
-        operation == "refresh" ? [].concat(assets) : images.concat(assets);
-      newState.data = newState.images;
-    }
+      if (operation === "refresh") {
+        newNoMore = !data.page_info.has_next_page ? true : false;
+        newImages = [].concat(assets);
+      } else if (assets.length > 0) {
+        newLastCursor = data.page_info.end_cursor;
+        newImages = images.concat(assets);
+      }
 
-    this.setState(newState);
-  }
+      setLastCursor(newLastCursor);
+      setImages(newImages);
+      setData(newImages);
+      setLoadingMore(false);
+      setInitialLoading(false);
+      setNoMore(newNoMore);
+    },
+    [images, lastCursor, noMore]
+  );
 
-  fetch() {
-    if (!this.state.loadingMore) {
-      this.setState({ loadingMore: true }, () => {
-        this.doFetch();
-      });
-    }
-  }
-
-  doFetch() {
+  // Fetch images
+  const doFetch = useCallback(() => {
     const {
       first = 10,
       groupTypes,
@@ -135,7 +102,7 @@ class CameraRollPicker extends Component {
       mimeTypes,
       sort_by = "",
       selectedAlbum,
-    } = this.props;
+    } = props;
     const fetchParams = {
       first,
       groupTypes,
@@ -150,8 +117,8 @@ class CameraRollPicker extends Component {
     if (Platform.OS === "android") {
       delete fetchParams.groupTypes;
     }
-    if (this.state.lastCursor) {
-      fetchParams.after = this.state.lastCursor;
+    if (lastCursor) {
+      fetchParams.after = lastCursor;
     }
     fetchParams.include = ["filename", "fileSize", "imageSize"];
 
@@ -164,185 +131,212 @@ class CameraRollPicker extends Component {
           if (filteredVideoArray.length === 1) {
             data.page_info.has_next_page = false;
           }
-          return this.appendImages({ ...data, edges: filteredVideoArray }, "");
+          appendImages({ ...data, edges: filteredVideoArray }, "");
+        } else {
+          appendImages(data, "");
         }
-        return this.appendImages(data, "");
       },
       (e) => console.log(e)
     );
-  }
+  }, [appendImages, lastCursor, props]);
 
-  _refreshControl(fetchParams) {
-    this.setState({
-      loading: true,
-    });
-    if (Platform.OS === "android") {
-      delete fetchParams.groupTypes;
+  // Initial fetch and subscription
+  useEffect(() => {
+    setInitialLoading(true);
+    doFetch();
+
+    if (subscriptionRef.current) subscriptionRef.current.remove();
+    if (parseInt(Platform.Version, 10) > 14) {
+      subscriptionRef.current = cameraRollEventEmitter.addListener(
+        "onLibrarySelectionChange",
+        (_event) => {
+          doFetch();
+        }
+      );
     }
-    try {
-      fetchParams.include = ["filename", "fileSize", "imageSize"];
-      // Add this block to filter by selected album
-      if (this.props.selectedAlbum && this.props.selectedAlbum !== "Albums") {
-        fetchParams.groupName = this.props.selectedAlbum;
-        fetchParams.groupTypes = "Album";
-      } else {
-        delete fetchParams.groupName;
+    return () => {
+      if (subscriptionRef.current && parseInt(Platform.Version, 10) > 14)
+        subscriptionRef.current.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.selectedAlbum]);
+
+  // Handle prop change for selected
+  useEffect(() => {
+    setSelected(selectedProp || []);
+  }, [selectedProp]);
+
+  // End reached handler
+  const onEndReached = useCallback(() => {
+    if (!noMore) {
+      setLoadingMore(true);
+      doFetch();
+    }
+  }, [noMore, doFetch]);
+
+  // Refresh control handler
+  const _refreshControl = useCallback(
+    (fetchParams) => {
+      setLoading(true);
+      if (Platform.OS === "android") {
         delete fetchParams.groupTypes;
       }
-    } catch (error) {
-      console.log("Error in RN camera roll picker", error);
-    }
-    CameraRoll.getPhotos(fetchParams).then(
-      (data) => {
-        this.setState({
-          loading: false,
-        });
-        return this.appendImages(data, "refresh");
-      },
-      (e) => console.log(e)
-    );
-  }
-
-  reset() {
-    this.setState({
-      selected: [],
-    });
-  }
-
-  selectImage(image) {
-    const { selected, images } = this.state;
-    const { callback, maximumErrorHandler, maximum } = this.props;
-
-    const isDeSelected = this.deSelectImage(image.image);
-    if (isDeSelected) return false;
-
-    if (selected.length >= maximum) {
-      if (maximumErrorHandler) maximumErrorHandler();
-      return;
-    }
-    const newSelected = [
-      ...selected,
-      {
-        height: image.image.height,
-        uri: image.image.uri,
-        width: image.image.width,
-        type: image.type,
-        playableDuration: image.image.playableDuration,
-        name: image.image.filename,
-        fileSize: image.image.fileSize,
-        exif: "location" in image ? image.location : null,
-      },
-    ];
-
-    this.setState({
-      selected: newSelected,
-      data: images,
-    });
-
-    callback(newSelected, image);
-  }
-
-  deSelectImage(media) {
-    const { onMediaDeselected, callback } = this.props;
-    const { selected, images } = this.state;
-
-    const isAlreadySelected = selected.find((item) => item.uri === media.uri);
-    if (isAlreadySelected) {
-      // remove from array
-      const newSelected = selected.filter((item) => item.uri !== media.uri);
-
-      this.setState({
-        selected: newSelected,
-        data: images,
-      });
-
-      if (onMediaDeselected) {
-        onMediaDeselected(media);
-      } else {
-        // support old system
-        callback(newSelected, media);
+      try {
+        fetchParams.include = ["filename", "fileSize", "imageSize"];
+        if (props.selectedAlbum && props.selectedAlbum !== "Albums") {
+          fetchParams.groupName = props.selectedAlbum;
+          fetchParams.groupTypes = "Album";
+        } else {
+          delete fetchParams.groupName;
+          delete fetchParams.groupTypes;
+        }
+      } catch (error) {
+        console.log("Error in RN camera roll picker", error);
       }
-      return true;
-    }
+      CameraRoll.getPhotos(fetchParams).then(
+        (data) => {
+          setLoading(false);
+          appendImages(data, "refresh");
+        },
+        (e) => console.log(e)
+      );
+    },
+    [appendImages, props.selectedAlbum]
+  );
 
-    return false; // wasn't selected
-  }
+  // Select image
+  const selectImage = useCallback(
+    (image) => {
+      const isDeSelected = deSelectImage(image.image);
+      if (isDeSelected) return false;
 
-  renderImage(item) {
-    const { selected } = this.state;
-    const {
+      if (selected.length >= maximum) {
+        if (maximumErrorHandler) maximumErrorHandler();
+        return;
+      }
+      const newSelected = [
+        ...selected,
+        {
+          height: image.image.height,
+          uri: image.image.uri,
+          width: image.image.width,
+          type: image.type,
+          playableDuration: image.image.playableDuration,
+          name: image.image.filename,
+          fileSize: image.image.fileSize,
+          exif: "location" in image ? image.location : null,
+        },
+      ];
+
+      setSelected(newSelected);
+      setData(images);
+
+      callback(newSelected, image);
+    },
+    [selected, maximum, maximumErrorHandler, callback, images]
+  );
+
+  // Deselect image
+  const deSelectImage = useCallback(
+    (media) => {
+      const isAlreadySelected = selected.find((item) => item.uri === media.uri);
+      if (isAlreadySelected) {
+        const newSelected = selected.filter((item) => item.uri !== media.uri);
+        setSelected(newSelected);
+        setData(images);
+
+        if (props.onMediaDeselected) {
+          props.onMediaDeselected(media);
+        } else {
+          callback(newSelected, media);
+        }
+        return true;
+      }
+      return false;
+    },
+    [selected, images, callback, props.onMediaDeselected]
+  );
+
+  // Render image
+  const renderImage = useCallback(
+    (item) => {
+      const isSelected =
+        selected.find((i) => i.uri === item.node.image.uri) !== undefined;
+
+      return (
+        <ImageItem
+          key={item.node.image.uri}
+          uri={item.node.image.uri}
+          item={item}
+          selected={isSelected}
+          imageMargin={imageMargin}
+          selectedMarker={selectedMarker}
+          VideoMarker={VideoMarker}
+          imagesPerRow={imagesPerRow}
+          containerWidth={containerWidth}
+          onClick={selectImage}
+          isDisabled={props.isDisabled}
+        />
+      );
+    },
+    [
+      selected,
       imageMargin,
       selectedMarker,
+      VideoMarker,
       imagesPerRow,
       containerWidth,
-      VideoMarker,
-      isDisabled,
-    } = this.props;
+      selectImage,
+      props.isDisabled,
+    ]
+  );
 
-    const { uri } = item.node.image;
-    const isSelected =
-      selected.find((i) => i.uri === item.node.image.uri) !== undefined;
-
-    return (
-      <ImageItem
-        key={uri}
-        uri={item.node.image.uri}
-        item={item}
-        selected={isSelected}
-        imageMargin={imageMargin}
-        selectedMarker={selectedMarker}
-        VideoMarker={VideoMarker}
-        imagesPerRow={imagesPerRow}
-        containerWidth={containerWidth}
-        onClick={this.selectImage}
-        isDisabled={isDisabled}
-      />
-    );
-  }
-
-  renderFooterSpinner() {
-    if (!this.state.noMore) {
+  // Footer spinner
+  const renderFooterSpinner = useCallback(() => {
+    if (!noMore) {
       return <ActivityIndicator style={styles.spinner} />;
     }
     return null;
+  }, [noMore]);
+
+  // Handle scroll
+  const _handleScroll = useCallback(
+    (event) => {
+      props.topBarNotifier && props.topBarNotifier(true);
+    },
+    [props.topBarNotifier]
+  );
+
+  if (initialLoading) {
+    return (
+      <View style={[styles.loader, { backgroundColor }]}>
+        {loader || <ActivityIndicator />}
+      </View>
+    );
   }
 
-  _handleScroll(event) {
-    this.props.topBarNotifier && this.props.topBarNotifier(true);
-  }
-
-  render() {
-    const {
-      initialNumToRender,
-      imageMargin,
-      backgroundColor,
-      emptyText,
-      emptyTextStyle,
-      loader,
-      imagesPerRow,
-      ImageIcon,
-    } = this.props;
-
-    if (this.state.initialLoading) {
-      return (
-        <View style={[styles.loader, { backgroundColor }]}>
-          {loader || <ActivityIndicator />}
-        </View>
-      );
-    }
-
-    const flatListOrEmptyText =
-      this.state.data.length > 0 ? (
-        <FlatList
-          style={{ flex: 1 }}
-          onTouchMove={this._handleScroll}
-          ListFooterComponent={this.renderFooterSpinner}
-          onEndReached={this.onEndReached}
-          renderItem={({ item }) => this.renderImage(item)}
+  return (
+    <View
+      style={[
+        styles.wrapper,
+        { padding: imageMargin, paddingRight: 0, backgroundColor },
+        data.length <= 0 && {
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      ]}
+    >
+      {data.length > 0 ? (
+        <FlashList
+          contentContainerStyle={{ flex: 1 }}
+          onTouchMove={_handleScroll}
+          ListFooterComponent={renderFooterSpinner}
+          onEndReached={onEndReached}
+          renderItem={({ item }) => renderImage(item)}
           keyExtractor={(item) => item.node.image.uri}
-          data={this.state.data}
+          data={data}
           numColumns={imagesPerRow}
-          extraData={this.state.selected}
+          extraData={selected}
           onEndReachedThreshold={0.7}
           windowSize={9}
           maxToRenderPerBatch={9}
@@ -351,7 +345,7 @@ class CameraRollPicker extends Component {
           updateCellsBatchingPeriod={10}
           refreshControl={
             <RefreshControl
-              refreshing={this.state.loading}
+              refreshing={loading}
               onRefresh={() => {
                 const {
                   first = 10,
@@ -359,8 +353,8 @@ class CameraRollPicker extends Component {
                   assetType,
                   mimeTypes,
                   sort_by,
-                } = this.props;
-                this._refreshControl({
+                } = props;
+                _refreshControl({
                   assetType,
                   first,
                   mimeTypes,
@@ -375,26 +369,12 @@ class CameraRollPicker extends Component {
         <>
           <ImageIcon />
           <Text style={[{ textAlign: "center" }, emptyTextStyle]}>
-            {emptyText}
+            {emptyTextProp}
           </Text>
         </>
-      );
-
-    return (
-      <View
-        style={[
-          styles.wrapper,
-          { padding: imageMargin, paddingRight: 0, backgroundColor },
-          this.state.data.length <= 0 && {
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        ]}
-      >
-        {flatListOrEmptyText}
-      </View>
-    );
-  }
+      )}
+    </View>
+  );
 }
 
 CameraRollPicker.propTypes = {
@@ -421,7 +401,7 @@ CameraRollPicker.propTypes = {
   VideoMarker: PropTypes.element,
   backgroundColor: PropTypes.string,
   emptyText: PropTypes.string,
-  // emptyTextStyle: Text.propTypes.style,
+  emptyTextStyle: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
   loader: PropTypes.node,
 };
 
