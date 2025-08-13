@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component } from "react";
 import {
   Platform,
   StyleSheet,
@@ -7,11 +7,11 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-} from 'react-native';
-import CameraRoll from "@react-native-community/cameraroll";
-import PropTypes from 'prop-types';
+} from "react-native";
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import PropTypes from "prop-types";
 
-import ImageItem from './ImageItem';
+import ImageItem from "./ImageItem";
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -19,11 +19,10 @@ const styles = StyleSheet.create({
   },
   loader: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
-
 
 class CameraRollPicker extends Component {
   constructor(props) {
@@ -49,16 +48,21 @@ class CameraRollPicker extends Component {
 
   componentWillMount() {
     this.fetch();
-    if (this.subscription) this.subscription.remove();
-    if (parseInt(Platform.Version, 10) > 14) {
-      this.subscription = cameraRollEventEmitter.addListener('onLibrarySelectionChange', (_event) => {
-        this.fetch();
-      });
-    }
   }
 
-  componentWillUnmount() {
-    if (this.subscription && parseInt(Platform.Version, 10) > 14) this.subscription.remove();
+  componentDidUpdate(prevProps) {
+    if (prevProps.selectedAlbum !== this.props.selectedAlbum) {
+      this.setState(
+        {
+          images: [],
+          data: [],
+          lastCursor: null,
+          noMore: false,
+          initialLoading: true,
+        },
+        () => this.doFetch()
+      );
+    }
   }
 
   onEndReached() {
@@ -75,13 +79,11 @@ class CameraRollPicker extends Component {
       initialLoading: false,
     };
 
-
-
-    if (!data.page_info.has_next_page) {
+    if (!data.page_info.has_next_page || assets.length <= 1) {
       newState.noMore = true;
     }
-    
-    if(operation === 'refresh') {
+
+    if (operation === "refresh") {
       if (!data.page_info.has_next_page) {
         newState.noMore = true;
       } else {
@@ -91,7 +93,8 @@ class CameraRollPicker extends Component {
 
     if (assets.length > 0) {
       newState.lastCursor = data.page_info.end_cursor;
-      newState.images = operation == 'refresh' ? [].concat(assets) :images.concat(assets);
+      newState.images =
+        operation == "refresh" ? [].concat(assets) : images.concat(assets);
       newState.data = newState.images;
     }
 
@@ -100,56 +103,89 @@ class CameraRollPicker extends Component {
 
   fetch() {
     if (!this.state.loadingMore) {
-      this.setState({ loadingMore: true }, () => { this.doFetch(); });
+      this.setState({ loadingMore: true }, () => {
+        this.doFetch();
+      });
     }
   }
 
   doFetch() {
-    const { first = 10, groupTypes, assetType, mimeTypes, sort_by = '' } = this.props;
-
+    const {
+      first = 10,
+      groupTypes,
+      assetType,
+      mimeTypes,
+      sort_by = "",
+      selectedAlbum,
+    } = this.props;
     const fetchParams = {
       first,
       groupTypes,
       assetType,
       mimeTypes,
-      ...{sort_by}
+      ...{ sort_by },
     };
-    if (Platform.OS === 'android') {
-      // not supported in android
+    if (selectedAlbum && selectedAlbum !== "Albums") {
+      fetchParams.groupName = selectedAlbum;
+      fetchParams.groupTypes = "Album";
+    }
+    if (Platform.OS === "android") {
       delete fetchParams.groupTypes;
     }
-
     if (this.state.lastCursor) {
       fetchParams.after = this.state.lastCursor;
     }
+    fetchParams.include = ["filename", "fileSize", "imageSize"];
 
-    fetchParams.include = ['filename', 'fileSize', 'location']
-
-    CameraRoll.getPhotos(fetchParams)
-      .then(data => {
-        return this.appendImages(data, '');
-      }, e => console.log(e));
+    CameraRoll.getPhotos(fetchParams).then(
+      (data) => {
+        if (assetType === "Videos" && Platform.OS === "ios") {
+          const filteredVideoArray = data.edges.filter(
+            (x) => x.node.type === "video"
+          );
+          if (filteredVideoArray.length === 1) {
+            data.page_info.has_next_page = false;
+          }
+          return this.appendImages({ ...data, edges: filteredVideoArray }, "");
+        }
+        return this.appendImages(data, "");
+      },
+      (e) => console.log(e)
+    );
   }
 
   _refreshControl(fetchParams) {
     this.setState({
-      loading: true
-    })
-    if (Platform.OS === 'android') {
-      // not supported in android
+      loading: true,
+    });
+    if (Platform.OS === "android") {
       delete fetchParams.groupTypes;
     }
-    fetchParams.include = ['filename', 'fileSize', 'location']
-    CameraRoll.getPhotos(fetchParams)
-      .then(data => {
+    try {
+      fetchParams.include = ["filename", "fileSize", "imageSize"];
+      // Add this block to filter by selected album
+      if (this.props.selectedAlbum && this.props.selectedAlbum !== "Albums") {
+        fetchParams.groupName = this.props.selectedAlbum;
+        fetchParams.groupTypes = "Album";
+      } else {
+        delete fetchParams.groupName;
+        delete fetchParams.groupTypes;
+      }
+    } catch (error) {
+      console.log("Error in RN camera roll picker", error);
+    }
+    CameraRoll.getPhotos(fetchParams).then(
+      (data) => {
         this.setState({
-          loading: false
-        })
-        return this.appendImages(data, 'refresh');
-      }, e => console.log(e));
+          loading: false,
+        });
+        return this.appendImages(data, "refresh");
+      },
+      (e) => console.log(e)
+    );
   }
-  
-  reset () {
+
+  reset() {
     this.setState({
       selected: [],
     });
@@ -157,30 +193,28 @@ class CameraRollPicker extends Component {
 
   selectImage(image) {
     const { selected, images } = this.state;
-    const {
-      callback,
-      maximumErrorHandler,
-      maximum,
-    } = this.props;
+    const { callback, maximumErrorHandler, maximum } = this.props;
 
     const isDeSelected = this.deSelectImage(image.image);
     if (isDeSelected) return false;
 
     if (selected.length >= maximum) {
-      if (maximumErrorHandler)
-        maximumErrorHandler();
+      if (maximumErrorHandler) maximumErrorHandler();
       return;
     }
-    const newSelected = [...selected, {
-      height: image.image.height,
-      uri: image.image.uri,
-      width: image.image.width,
-      type: image.type,
-      playableDuration: image.image.playableDuration,
-      name: image.image.filename,
-      fileSize: image.image.fileSize,
-      exif: 'location' in image ? image.location: null
-    }];
+    const newSelected = [
+      ...selected,
+      {
+        height: image.image.height,
+        uri: image.image.uri,
+        width: image.image.width,
+        type: image.type,
+        playableDuration: image.image.playableDuration,
+        name: image.image.filename,
+        fileSize: image.image.fileSize,
+        exif: "location" in image ? image.location : null,
+      },
+    ];
 
     this.setState({
       selected: newSelected,
@@ -191,14 +225,13 @@ class CameraRollPicker extends Component {
   }
 
   deSelectImage(media) {
-    const {onMediaDeselected, callback} = this.props;
-    const {selected, images} = this.state;
+    const { onMediaDeselected, callback } = this.props;
+    const { selected, images } = this.state;
 
-
-    const isAlreadySelected = selected.find(item => item.uri === media.uri);
+    const isAlreadySelected = selected.find((item) => item.uri === media.uri);
     if (isAlreadySelected) {
       // remove from array
-      const newSelected = selected.filter(item => item.uri !== media.uri);
+      const newSelected = selected.filter((item) => item.uri !== media.uri);
 
       this.setState({
         selected: newSelected,
@@ -206,7 +239,7 @@ class CameraRollPicker extends Component {
       });
 
       if (onMediaDeselected) {
-        onMediaDeselected(media)
+        onMediaDeselected(media);
       } else {
         // support old system
         callback(newSelected, media);
@@ -225,10 +258,12 @@ class CameraRollPicker extends Component {
       imagesPerRow,
       containerWidth,
       VideoMarker,
+      isDisabled,
     } = this.props;
 
     const { uri } = item.node.image;
-    const isSelected = selected.find(i => i.uri === item.node.image.uri) !== undefined;
+    const isSelected =
+      selected.find((i) => i.uri === item.node.image.uri) !== undefined;
 
     return (
       <ImageItem
@@ -242,6 +277,7 @@ class CameraRollPicker extends Component {
         imagesPerRow={imagesPerRow}
         containerWidth={containerWidth}
         onClick={this.selectImage}
+        isDisabled={isDisabled}
       />
     );
   }
@@ -253,10 +289,8 @@ class CameraRollPicker extends Component {
     return null;
   }
 
-  _handleScroll (event) {
-    if(event.nativeEvent.contentOffset.y < 5) {
-      this.props.topBarNotifier && this.props.topBarNotifier({yOffset: event.nativeEvent.contentOffset.y })
-    }   
+  _handleScroll(event) {
+    this.props.topBarNotifier && this.props.topBarNotifier(true);
   }
 
   render() {
@@ -268,54 +302,76 @@ class CameraRollPicker extends Component {
       emptyTextStyle,
       loader,
       imagesPerRow,
+      ImageIcon,
     } = this.props;
 
     if (this.state.initialLoading) {
       return (
         <View style={[styles.loader, { backgroundColor }]}>
-          { loader || <ActivityIndicator /> }
+          {loader || <ActivityIndicator />}
         </View>
       );
     }
 
-    const flatListOrEmptyText = this.state.data.length > 0 ? (
-      <FlatList
-        style={{ flex: 1 }}
-        onScroll={this._handleScroll}
-        ListFooterComponent={this.renderFooterSpinner}
-        onEndReached={this.onEndReached}
-        renderItem={({ item }) => this.renderImage(item)}
-        keyExtractor={item => item.node.image.uri}
-        data={this.state.data}
-        numColumns={imagesPerRow}
-        extraData={this.state.selected}
-        onEndReachedThreshold={0.7}
-        windowSize={9}
-        maxToRenderPerBatch={9}
-        initialNumToRender={initialNumToRender}
-        removeClippedSubviews={Platform.OS === 'android'}
-        updateCellsBatchingPeriod={10}
-        refreshControl={<RefreshControl
-          refreshing={this.state.loading}
-          onRefresh={()=> {
-            const {first = 10, groupTypes, assetType, mimeTypes, sort_by} = this.props;
-            this._refreshControl({
-              assetType, 
-              first, 
-              mimeTypes,
-              groupTypes,
-              sort_by
-            })
-          }}
-        />}
-      />
-    ) : (
-      <Text style={[{ textAlign: 'center' }, emptyTextStyle]}>{emptyText}</Text>
-    );
+    const flatListOrEmptyText =
+      this.state.data.length > 0 ? (
+        <FlatList
+          style={{ flex: 1 }}
+          onTouchMove={this._handleScroll}
+          ListFooterComponent={this.renderFooterSpinner}
+          onEndReached={this.onEndReached}
+          renderItem={({ item }) => this.renderImage(item)}
+          keyExtractor={(item) => item.node.image.uri}
+          data={this.state.data}
+          numColumns={imagesPerRow}
+          extraData={this.state.selected}
+          onEndReachedThreshold={0.7}
+          windowSize={9}
+          maxToRenderPerBatch={9}
+          initialNumToRender={initialNumToRender}
+          removeClippedSubviews={Platform.OS === "android"}
+          updateCellsBatchingPeriod={10}
+          refreshControl={
+            <RefreshControl
+              refreshing={this.state.loading}
+              onRefresh={() => {
+                const {
+                  first = 10,
+                  groupTypes,
+                  assetType,
+                  mimeTypes,
+                  sort_by,
+                } = this.props;
+                this._refreshControl({
+                  assetType,
+                  first,
+                  mimeTypes,
+                  groupTypes,
+                  sort_by,
+                });
+              }}
+            />
+          }
+        />
+      ) : (
+        <>
+          <ImageIcon />
+          <Text style={[{ textAlign: "center" }, emptyTextStyle]}>
+            {emptyText}
+          </Text>
+        </>
+      );
 
     return (
       <View
-        style={[styles.wrapper, { padding: imageMargin, paddingRight: 0, backgroundColor }]}
+        style={[
+          styles.wrapper,
+          { padding: imageMargin, paddingRight: 0, backgroundColor },
+          this.state.data.length <= 0 && {
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
       >
         {flatListOrEmptyText}
       </View>
@@ -326,21 +382,17 @@ class CameraRollPicker extends Component {
 CameraRollPicker.propTypes = {
   initialNumToRender: PropTypes.number,
   groupTypes: PropTypes.oneOf([
-    'Album',
-    'All',
-    'Event',
-    'Faces',
-    'Library',
-    'PhotoStream',
-    'SavedPhotos',
+    "Album",
+    "All",
+    "Event",
+    "Faces",
+    "Library",
+    "PhotoStream",
+    "SavedPhotos",
   ]),
   maximum: PropTypes.number,
   maximumErrorHandler: PropTypes.func,
-  assetType: PropTypes.oneOf([
-    'Photos',
-    'Videos',
-    'All',
-  ]),
+  assetType: PropTypes.oneOf(["Photos", "Videos", "All"]),
   selectSingleItem: PropTypes.bool,
   imagesPerRow: PropTypes.number,
   imageMargin: PropTypes.number,
@@ -357,20 +409,20 @@ CameraRollPicker.propTypes = {
 
 CameraRollPicker.defaultProps = {
   initialNumToRender: 5,
-  groupTypes: 'SavedPhotos',
+  groupTypes: "SavedPhotos",
   maximum: 15,
   imagesPerRow: 3,
   imageMargin: 5,
   selectSingleItem: false,
-  assetType: 'Photos',
-  backgroundColor: 'white',
+  assetType: "Photos",
+  backgroundColor: "white",
   selected: [],
   callback(selectedImages, currentImage) {
     console.log(currentImage);
     console.log(selectedImages);
   },
   maximumErrorHandler() {},
-  emptyText: 'No photos.',
+  emptyText: "No photos.",
 };
 
 export default CameraRollPicker;

@@ -25,8 +25,8 @@
   },
   "homepage": "https://github.com/jeanpan/react-native-camera-roll-picker#readme",
   "devDependencies": {
-    "@react-native-community/cameraroll": "git+https://github.com/msd-my/react-native-camera-roll.git",
-    "react-native-fast-image": "^7.0.2",
-    "prop-types": "^15.6.0"
+    "@react-native-camera-roll/camera-roll": "^7.10.2",
+    "react-native-fast-image": "^8.6.3",
+    "prop-types": "^15.8.1"
   }
 }
